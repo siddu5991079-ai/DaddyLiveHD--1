@@ -10,137 +10,64 @@
 
 
 const puppeteer = require('puppeteer');
-const { spawnSync } = require('child_process');
-const fs = require('fs');
+const { PuppeteerScreenRecorder } = require('puppeteer-screen-recorder');
 
-// ⚙️ SETTINGS
-const TARGET_URL = 'https://dlstreams.com/stream/stream-598.php';
-
-// 🛡️ HARDCODED PROXY
-const PROXY_IP = '31.59.20.176';
-const PROXY_PORT = '6754';
+// 🛡️ Tumhari Hardcoded Proxy
+const PROXY_SERVER = 'http://31.59.20.176:6754';
 const PROXY_USER = 'cjasfidu';
 const PROXY_PASS = 'qhnyvm0qpf6p';
 
-// ==========================================
-// 🔍 STEP 1: PUPPETEER SE M3U8 NIKALNA
-// ==========================================
-async function getStreamData() {
-    console.log(`\n[🔍 STEP 1] Puppeteer Chrome Start kar raha hoon Proxy ke sath...`);
+// 🌐 Stream Link
+const TARGET_URL = 'https://dlstreams.com/stream/stream-598.php';
+
+(async () => {
+    console.log("[🚀] Chrome start kar raha hoon Proxy ke sath...");
     
-    let browserArgs = [
-        '--no-sandbox', 
-        '--disable-setuid-sandbox', 
-        '--disable-blink-features=AutomationControlled', 
-        '--mute-audio',
-        `--proxy-server=http://${PROXY_IP}:${PROXY_PORT}`
-    ];
-
-    const browser = await puppeteer.launch({ headless: true, args: browserArgs });
-    const page = await browser.newPage();
-
-    // Proxy Auth
-    await page.authenticate({ username: PROXY_USER, password: PROXY_PASS });
-    console.log(`[✅] Proxy Authenticated.`);
-
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-
-    let streamData = null;
-
-    // 📡 Network Requests Intercept
-    page.on('request', (request) => {
-        const url = request.url();
-        if (url.includes('.m3u8')) {
-            streamData = {
-                url: url,
-                referer: request.headers()['referer'] || TARGET_URL,
-                cookie: request.headers()['cookie'] || ''
-            };
-            console.log(`[✅ BINGO] Stream (M3U8) Link pakar liya gaya!`);
-        }
+    const browser = await puppeteer.launch({
+        headless: "new", // Naya aur stable headless mode
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-gpu', // Black screen roknay ke liye zaroori hai
+            '--autoplay-policy=no-user-gesture-required', // Video khud play hogi
+            `--proxy-server=${PROXY_SERVER}`
+        ]
     });
 
-    try {
-        console.log(`[🌐] Direct URL par ja raha hoon: ${TARGET_URL}`);
-        await page.goto(TARGET_URL, { waitUntil: 'networkidle2', timeout: 60000 });
-        
-        // Agar play button ho toh usko click karne ki koshish karega
-        await page.click('body').catch(() => {});
-        
-        // 10 second wait karega taake m3u8 link load ho jaye
-        for (let i = 1; i <= 2; i++) {
-            await new Promise(r => setTimeout(r, 5000)); 
-            if (streamData) break; 
-        }
-    } catch (e) { 
-        console.log(`[❌ ERROR] Page load nahi ho saka:`, e.message); 
-    }
+    const page = await browser.newPage();
     
+    // Proxy Login
+    await page.authenticate({ username: PROXY_USER, password: PROXY_PASS });
+    console.log("[✅] Proxy authenticated.");
+
+    // Screen ki resolution exactly 720p set kardi
+    await page.setViewport({ width: 1280, height: 720 });
+
+    console.log(`[🌐] URL load kar raha hoon: ${TARGET_URL}`);
+    await page.goto(TARGET_URL, { waitUntil: 'networkidle2', timeout: 60000 });
+    
+    // Agar stream pe koi fake play button hua toh usko press kardega
+    await page.click('body').catch(() => {});
+
+    // Recorder ki settings
+    const recorder = new PuppeteerScreenRecorder(page, {
+        fps: 30,
+        quality: 100,
+        videoFrame: { width: 1280, height: 720 }
+    });
+
+    console.log("[🎥] 20 seconds ki Tab Recording shuru ho gayi hai...");
+    await recorder.start('final_tab_record.mp4');
+
+    // 20 Second wait karega recording ke liye
+    await new Promise(resolve => setTimeout(resolve, 20000));
+
+    await recorder.stop();
+    console.log("[✅] Recording mukammal ho gayi! File: 'final_tab_record.mp4'");
+
     await browser.close();
-    return streamData;
-}
-
-// ==========================================
-// 🎬 STEP 2: FFMPEG SE DIRECT RECORD KARNA
-// ==========================================
-async function recordStream(data, outputVid) {
-    if (!data || !data.url) {
-        console.log(`[❌] Stream data missing. Cannot record.`);
-        return false;
-    }
-
-    console.log(`\n[🎬 STEP 2] FFmpeg se M3U8 ko direct record kar raha hoon (20 Seconds)...`);
-    
-    // Original headers bypass karne ke liye
-    const headersCmd = `User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)\r\nReferer: ${data.referer}\r\nCookie: ${data.cookie}\r\n`;
-    
-    // 👈 YEH WOH FIX HAI JO MISSING THA
-    const proxyUrl = `http://${PROXY_USER}:${PROXY_PASS}@${PROXY_IP}:${PROXY_PORT}`;
-
-    let args = [
-        "-y", 
-        "-http_proxy", proxyUrl,  // Proxy ab safely pass hogi aur 403 error nahi aayega
-        "-headers", headersCmd, 
-        "-i", data.url,
-        "-c:v", "copy",   // Video stream ko directly copy karega (fastest)
-        "-c:a", "copy",   // Audio stream ko directly copy karega
-        "-t", "20",       // 20 Seconds duration
-        outputVid
-    ];
-
-    try {
-        // Output show karne ke liye stdio inherit rakha hai
-        spawnSync('ffmpeg', args, { stdio: 'inherit' });
-        
-        if (fs.existsSync(outputVid) && fs.statSync(outputVid).size > 1000) {
-            console.log(`\n[✅ SUCCESS] 20 seconds ki video successfully save ho gayi: ${outputVid}`);
-            return true;
-        }
-    } catch (e) { 
-        console.log(`[❌] FFmpeg process fail!`); 
-    }
-    return false;
-}
-
-// ==========================================
-// 🚀 MAIN FLOW
-// ==========================================
-async function main() {
-    console.log("\n==================================================");
-    console.log("   🚀 DIRECT URL FLOW TEST STARTED");
-    console.log("==================================================");
-    
-    let streamData = await getStreamData();
-    
-    if (streamData) {
-        await recordStream(streamData, 'final_test_video.mp4');
-    } else {
-        console.log(`\n[🛑] Failed to extract M3U8. Yeh website shayad video blob mein hide kar rahi hai.`);
-    }
-}
-
-main();
-
+    console.log("[🧹] Browser band kar diya.");
+})();
 
 
 
