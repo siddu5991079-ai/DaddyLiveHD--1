@@ -1,4 +1,4 @@
-name: 🎥 Puppeteer Tab Recording
+name: 🎥 Pro Stealth Tab Recording
 
 on:
   workflow_dispatch:
@@ -16,16 +16,16 @@ jobs:
         with:
           node-version: '18'
 
-      - name: 📦 Install Dependencies
+      - name: 📦 Install Advanced Dependencies
         run: |
           npm init -y
-          npm install puppeteer puppeteer-screen-recorder
+          npm install puppeteer puppeteer-extra puppeteer-extra-plugin-stealth puppeteer-screen-recorder
 
-      - name: 🎬 Run Script & Record
+      - name: 🎬 Run Stealth Script & Record
         run: node tab_record.js
 
       - name: 📤 Upload Video as Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Stream-Tab-Record
-          path: final_tab_record.mp4
+          name: Stream-Pro-Record
+          path: final_match_record.mp4
