@@ -9,66 +9,86 @@
 // ============ link capture with proxy and then use my ip soo error ============================
 
 
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+const AdblockerPlugin = require('puppeteer-extra-plugin-adblocker');
 const { PuppeteerScreenRecorder } = require('puppeteer-screen-recorder');
 
-// 🛡️ Tumhari Hardcoded Proxy
+// Evasion Plugins activate karna
+puppeteer.use(StealthPlugin());
+puppeteer.use(AdblockerPlugin({ blockTrackers: true }));
+
+// 🛡️ Tumhari Proxy
 const PROXY_SERVER = 'http://31.59.20.176:6754';
 const PROXY_USER = 'cjasfidu';
 const PROXY_PASS = 'qhnyvm0qpf6p';
 
-// 🌐 Stream Link
-const TARGET_URL = 'https://dadocric.st/player.php?id=willowextra';
+// 🌐 Main Page URL (Raw iframe nahi, taake real lage)
+const TARGET_URL = 'https://dlstreams.com/watch.php?id=598';
 
 (async () => {
-    console.log("[🚀] Chrome start kar raha hoon Proxy ke sath...");
+    console.log("[🚀] Stealth Chrome start kar raha hoon...");
     
     const browser = await puppeteer.launch({
-        headless: "new", // Naya aur stable headless mode
+        headless: "new",
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
-            '--disable-gpu', // Black screen roknay ke liye zaroori hai
-            '--autoplay-policy=no-user-gesture-required', // Video khud play hogi
+            '--disable-gpu',
+            '--autoplay-policy=no-user-gesture-required',
             `--proxy-server=${PROXY_SERVER}`
         ]
     });
 
     const page = await browser.newPage();
     
-    // Proxy Login
     await page.authenticate({ username: PROXY_USER, password: PROXY_PASS });
     console.log("[✅] Proxy authenticated.");
 
-    // Screen ki resolution exactly 720p set kardi
     await page.setViewport({ width: 1280, height: 720 });
 
-    console.log(`[🌐] URL load kar raha hoon: ${TARGET_URL}`);
+    console.log(`[🌐] Main URL load kar raha hoon: ${TARGET_URL}`);
     await page.goto(TARGET_URL, { waitUntil: 'networkidle2', timeout: 60000 });
     
-    // Agar stream pe koi fake play button hua toh usko press kardega
-    await page.click('body').catch(() => {});
+    console.log("[💉] CSS Inject kar raha hoon: Website gayab, Iframe Full Screen...");
+    // Yeh script website ke baqi hissay (chat, header) hide kar degi aur sirf player ko samne layegi
+    await page.evaluate(() => {
+        const iframe = document.querySelector('iframe');
+        if (iframe) {
+            iframe.style.position = 'fixed';
+            iframe.style.top = '0';
+            iframe.style.left = '0';
+            iframe.style.width = '100vw';
+            iframe.style.height = '100vh';
+            iframe.style.zIndex = '99999';
+            document.body.style.overflow = 'hidden';
+        }
+    });
 
-    // Recorder ki settings
+    // 5 seconds wait for stream to settle and ads to be blocked
+    await new Promise(resolve => setTimeout(resolve, 5000));
+
+    // Player ke center mein ek click trigger karna taake "Unmute" ya fake overlay bypass ho jaye
+    console.log("[🖱️] Simulating human click on player...");
+    await page.mouse.click(640, 360);
+
     const recorder = new PuppeteerScreenRecorder(page, {
         fps: 30,
         quality: 100,
         videoFrame: { width: 1280, height: 720 }
     });
 
-    console.log("[🎥] 20 seconds ki Tab Recording shuru ho gayi hai...");
-    await recorder.start('final_tab_record.mp4');
+    console.log("[🎥] 20 seconds ki Tab Recording shuru...");
+    await recorder.start('pro_stealth_record.mp4');
 
-    // 20 Second wait karega recording ke liye
     await new Promise(resolve => setTimeout(resolve, 20000));
 
     await recorder.stop();
-    console.log("[✅] Recording mukammal ho gayi! File: 'final_tab_record.mp4'");
+    console.log("[✅] Recording mukammal! File: 'pro_stealth_record.mp4'");
 
     await browser.close();
-    console.log("[🧹] Browser band kar diya.");
+    console.log("[🧹] Operations completed.");
 })();
-
 
 
 
