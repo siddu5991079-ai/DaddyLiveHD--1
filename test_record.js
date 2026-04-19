@@ -244,4 +244,4 @@ fs.writeFileSync('index.html', htmlContent);
     // Temp HTML file delete kar do
     fs.unlinkSync('index.html');
     console.log("[🧹] Browser closed and cleanup done.");
-// })();
+})();
