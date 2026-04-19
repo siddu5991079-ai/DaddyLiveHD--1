@@ -18,7 +18,7 @@ const PROXY_USER = 'cjasfidu';
 const PROXY_PASS = 'qhnyvm0qpf6p';
 
 // 🌐 Stream Link
-const TARGET_URL = 'https://dlstreams.com/stream/stream-598.php';
+const TARGET_URL = 'https://dadocric.st/player.php?id=willowextra';
 
 (async () => {
     console.log("[🚀] Chrome start kar raha hoon Proxy ke sath...");
