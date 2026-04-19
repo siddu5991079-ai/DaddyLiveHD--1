@@ -1,7 +1,7 @@
-name: 🎥 Test Stream Recording
+name: 🎥 Puppeteer Tab Recording
 
 on:
-  workflow_dispatch: # Sirf manual run karne ke liye (Actions tab se)
+  workflow_dispatch:
 
 jobs:
   test_recording:
@@ -16,19 +16,16 @@ jobs:
         with:
           node-version: '18'
 
-      - name: 📦 Install Dependencies (Puppeteer, FFmpeg, Xvfb)
+      - name: 📦 Install Dependencies
         run: |
           npm init -y
-          npm install puppeteer
-          sudo apt-get update
-          sudo apt-get install -y xvfb ffmpeg
+          npm install puppeteer puppeteer-screen-recorder
 
-      - name: 🎬 Run Script & Record (Virtual Screen)
-        # xvfb-run ek virtual display (:99) banata hai jisko ffmpeg record karega
-        run: xvfb-run --server-args="-screen 0 1280x720x24" node test_record.js
+      - name: 🎬 Run Script & Record
+        run: node tab_record.js
 
       - name: 📤 Upload Video as Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Stream-20sec-Test
-          path: test_output.mp4
+          name: Stream-Tab-Record
+          path: final_tab_record.mp4
