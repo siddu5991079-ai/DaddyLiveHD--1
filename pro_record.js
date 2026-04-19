@@ -1,198 +1,161 @@
-
-
-
-
-
-
-
-
-// ============ link capture with proxy and then use my ip soo error ============================
-
-
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
-const AdblockerPlugin = require('puppeteer-extra-plugin-adblocker');
 const { PuppeteerScreenRecorder } = require('puppeteer-screen-recorder');
 
-// Evasion Plugins activate karna
+// Evasion Plugin Activate
 puppeteer.use(StealthPlugin());
-puppeteer.use(AdblockerPlugin({ blockTrackers: true }));
 
-// 🛡️ Tumhari Proxy
-const PROXY_SERVER = 'http://31.59.20.176:6754';
-const PROXY_USER = 'cjasfidu';
-const PROXY_PASS = 'qhnyvm0qpf6p';
-
-// 🌐 Main Page URL (Raw iframe nahi, taake real lage)
-const TARGET_URL = 'https://dlstreams.com/watch.php?id=598';
+// 🛡️ Hardcoded Proxy Details
+const proxyIpPort = '31.59.20.176:6754';
+const proxyUser = 'cjasfidu';
+const proxyPass = 'qhnyvm0qpf6p';
 
 (async () => {
-    console.log("[🚀] Stealth Chrome start kar raha hoon...");
-    
-    const browser = await puppeteer.launch({
-        headless: "new",
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-gpu',
-            '--autoplay-policy=no-user-gesture-required',
-            `--proxy-server=${PROXY_SERVER}`
-        ]
+  console.log("[🚀] Launching Stealth Browser with Proxy (No Xvfb needed)...");
+  
+  const browser = await puppeteer.launch({
+    headless: "new", // "new" rakha hai taake GitHub Actions par bina Xvfb ke chalay
+    defaultViewport: { width: 1280, height: 720 },
+    args: [
+      '--no-sandbox', 
+      '--disable-setuid-sandbox',
+      '--disable-web-security',
+      '--disable-features=IsolateOrigins,site-per-process',
+      '--window-size=1280,720',
+      '--autoplay-policy=no-user-gesture-required', 
+      `--proxy-server=http://${proxyIpPort}` 
+    ]
+  });
+
+  const page = await browser.newPage();
+  
+  // Base Page Proxy Auth
+  await page.authenticate({ username: proxyUser, password: proxyPass });
+  console.log("[✅] Proxy credentials applied successfully.");
+
+  await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36');
+
+  try {
+    console.log("[🌐] Navigating to Homepage using Proxy...");
+    await page.goto('https://dlstreams.com/', { waitUntil: 'networkidle2', timeout: 60000 });
+    await new Promise(r => setTimeout(r, 4000));
+
+    // 1. Click Cricket Category
+    const cricketSelector = 'a[href="/index.php?cat=Cricket"]';
+    await page.waitForSelector(cricketSelector, { visible: true, timeout: 10000 });
+    const cricketBtn = await page.$(cricketSelector);
+    if (cricketBtn) {
+        const box = await cricketBtn.boundingBox();
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 15 });
+        await new Promise(r => setTimeout(r, 1000)); 
+        await Promise.all([
+            page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }), 
+            page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+        ]);
+    }
+
+    // 2. Scroll and Find IPL Match
+    console.log("[🖱️] Scrolling and clicking IPL match...");
+    await page.waitForSelector('div.schedule__event', { visible: true, timeout: 15000 });
+    await page.mouse.wheel({ deltaY: 600 });
+    await new Promise(r => setTimeout(r, 2000));
+
+    const targetMatch = await page.evaluateHandle(() => {
+        const events = Array.from(document.querySelectorAll('div.schedule__event'));
+        return events.find(el => el.textContent.includes('Indian Premier League'));
     });
 
-    const page = await browser.newPage();
-    
-    await page.authenticate({ username: PROXY_USER, password: PROXY_PASS });
-    console.log("[✅] Proxy authenticated.");
-
-    await page.setViewport({ width: 1280, height: 720 });
-
-    console.log(`[🌐] Main URL load kar raha hoon: ${TARGET_URL}`);
-    await page.goto(TARGET_URL, { waitUntil: 'networkidle2', timeout: 60000 });
-    
-    console.log("[💉] CSS Inject kar raha hoon: Website gayab, Iframe Full Screen...");
-    // Yeh script website ke baqi hissay (chat, header) hide kar degi aur sirf player ko samne layegi
-    await page.evaluate(() => {
-        const iframe = document.querySelector('iframe');
-        if (iframe) {
-            iframe.style.position = 'fixed';
-            iframe.style.top = '0';
-            iframe.style.left = '0';
-            iframe.style.width = '100vw';
-            iframe.style.height = '100vh';
-            iframe.style.zIndex = '99999';
-            document.body.style.overflow = 'hidden';
-        }
-    });
-
-    // 5 seconds wait for stream to settle and ads to be blocked
-    await new Promise(resolve => setTimeout(resolve, 5000));
-
-    // Player ke center mein ek click trigger karna taake "Unmute" ya fake overlay bypass ho jaye
-    console.log("[🖱️] Simulating human click on player...");
-    await page.mouse.click(640, 360);
-
-    const recorder = new PuppeteerScreenRecorder(page, {
-        fps: 30,
-        quality: 100,
-        videoFrame: { width: 1280, height: 720 }
-    });
-
-    console.log("[🎥] 20 seconds ki Tab Recording shuru...");
-    await recorder.start('pro_stealth_record.mp4');
-
-    await new Promise(resolve => setTimeout(resolve, 20000));
-
-    await recorder.stop();
-    console.log("[✅] Recording mukammal! File: 'pro_stealth_record.mp4'");
-
-    await browser.close();
-    console.log("[🧹] Operations completed.");
-})();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// =============================================
-
-
-
-// const puppeteer = require('puppeteer');
-// const fs = require('fs');
-// const { spawnSync } = require('child_process');
-
-// // Tumhara iframe wala HTML code
-// const htmlContent = `
-// <!DOCTYPE html>
-// <html lang="en">
-// <head>
-// <style>
-//   body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background-color: black; }
-//   .fullscreen-iframe { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; border: none; }
-// </style>
-// </head>
-// <body>
-//   <iframe 
-//     src="https://dlstreams.com/stream/stream-598.php" 
-//     class="fullscreen-iframe" 
-//     allowfullscreen 
-//     scrolling="no">
-//   </iframe>
-// </body>
-// </html>
-// `;
-
-// // HTML file ko temporarily save karna
-// fs.writeFileSync('index.html', htmlContent);
-
-// (async () => {
-//     console.log("[🚀] Starting Chrome with Hardcoded Proxy...");
-
-//     // Headless false rakhna zaroori hai taake GitHub Actions me Xvfb isko record kar sake
-//     const browser = await puppeteer.launch({
-//         headless: false, 
-//         defaultViewport: { width: 1280, height: 720 },
-//         args: [
-//             '--no-sandbox',
-//             '--disable-setuid-sandbox',
-//             '--proxy-server=http://31.59.20.176:6754', // Tumhari proxy
-//             '--window-size=1280,720',
-//             '--autoplay-policy=no-user-gesture-required'
-//         ]
-//     });
-
-//     const page = await browser.newPage();
-
-//     // Proxy Authentication
-//     await page.authenticate({ username: 'cjasfidu', password: 'qhnyvm0qpf6p' });
-//     console.log("[✅] Proxy authenticated.");
-
-//     // Local HTML file open karna
-//     const filePath = 'file://' + __dirname + '/index.html';
-//     console.log(`[🌐] Navigating to ${filePath}`);
-//     await page.goto(filePath, { waitUntil: 'networkidle2' });
-
-//     // Stream play hone ke liye ek click trigger kar dete hain
-//     await page.click('body').catch(() => {});
-    
-//     console.log("[🎥] Page loaded! Starting 20 seconds screen recording...");
-
-//     // FFmpeg se Xvfb virtual screen (:99) ko 20 seconds ke liye record karna
-//     try {
-//         spawnSync('ffmpeg', [
-//             '-y',
-//             '-f', 'x11grab',          // Screen grab for Linux
-//             '-video_size', '1280x720',
-//             '-framerate', '30',
-//             '-i', ':99.0',            // GitHub Actions default Xvfb display
-//             '-t', '60',               // 20 Seconds duration
-//             '-c:v', 'libx264',
-//             '-preset', 'ultrafast',
-//             'test_output.mp4'         // Output file name
-//         ], { stdio: 'inherit' });
+    const box = await targetMatch.boundingBox();
+    if (box) {
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 15 });
+        await new Promise(r => setTimeout(r, 1000)); 
+        await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
         
-//         console.log("[✅] 20 Seconds Recording Finished!");
-//     } catch (err) {
-//         console.log("[❌] Recording failed:", err);
-//     }
+        // 3. Click Willow 2
+        console.log("[🖱️] Clicking 'Willow 2 Cricket'...");
+        const willowSelector = 'a[data-ch="willow 2 cricket"]'; 
+        await page.waitForSelector(willowSelector, { visible: true, timeout: 10000 });
+        const willowBtn = await page.$(willowSelector);
+        
+        if (willowBtn) {
+            const wBox = await willowBtn.boundingBox();
+            await page.mouse.move(wBox.x + wBox.width / 2, wBox.y + wBox.height / 2, { steps: 15 });
+            await new Promise(r => setTimeout(r, 1000)); 
 
-//     await browser.close();
-//     // Temp HTML file delete kar do
-//     fs.unlinkSync('index.html');
-//     console.log("[🧹] Browser closed and cleanup done.");
-// })();
+            // Intercepting New Tab
+            const newPagePromise = new Promise(x => browser.once('targetcreated', target => x(target.page())));
+            await page.mouse.click(wBox.x + wBox.width / 2, wBox.y + wBox.height / 2);
+            
+            const streamPage = await newPagePromise;
+            if (streamPage) {
+                console.log("[🔄] Shifted to Stream Tab! Authenticating proxy on new tab...");
+                
+                // NAYE TAB PAR BHI PROXY AUTHENTICATE KARNA ZAROORI HAI
+                await streamPage.authenticate({ username: proxyUser, password: proxyPass });
+                
+                await streamPage.bringToFront();
+                await streamPage.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36');
+                await streamPage.setViewport({ width: 1280, height: 720 });
+                
+                // Anti-popup
+                await streamPage.evaluateOnNewDocument(() => { window.open = () => null; });
+
+                console.log("[⏳] Waiting 12 seconds for auto-refreshes...");
+                await new Promise(r => setTimeout(r, 12000)); 
+                
+                console.log("[🧹] Destroying Ad-Trap & making player Full Screen...");
+                await streamPage.evaluate(() => {
+                    // Remove Ad Trap
+                    const trap = document.querySelector('div#dontfoid');
+                    if (trap) trap.remove();
+
+                    // Iframe ko Full Screen CSS dena taake website ka kachra record na ho
+                    const iframe = document.querySelector('iframe');
+                    if (iframe) {
+                        iframe.style.position = 'fixed';
+                        iframe.style.top = '0';
+                        iframe.style.left = '0';
+                        iframe.style.width = '100vw';
+                        iframe.style.height = '100vh';
+                        iframe.style.zIndex = '99999';
+                        document.body.style.overflow = 'hidden';
+                    } else {
+                        window.scrollBy({ top: 400, behavior: 'smooth' });
+                    }
+                });
+                
+                await new Promise(r => setTimeout(r, 2000));
+                
+                // Click Player to Play
+                await streamPage.mouse.move(640, 360, { steps: 20 });
+                await streamPage.mouse.click(640, 360);
+                
+                console.log("[🎥] SUCCESS! Video should be playing. Starting Tab Recorder...");
+                
+                // RECORDER SHURU KARIEN (Sirf Stream Page par)
+                const recorder = new PuppeteerScreenRecorder(streamPage, {
+                    fps: 30,
+                    quality: 100,
+                    videoFrame: { width: 1280, height: 720 }
+                });
+
+                await recorder.start('final_match_record.mp4');
+                
+                console.log("[⏳] Recording next 30 seconds...");
+                await new Promise(r => setTimeout(r, 30000));
+
+                await recorder.stop();
+                console.log("[✅] Recording Complete! File saved as 'final_match_record.mp4'");
+            }
+        }
+    } else {
+        console.log("IPL Match nahi mila.");
+    }
+
+  } catch (error) {
+    console.log("Execution stopped or error occurred:", error.message);
+  }
+
+  console.log("Closing browser...");
+  await browser.close();
+})();
