@@ -47,7 +47,7 @@ async function getStreamData() {
 
     let streamData = null;
 
-    // 📡 Network Requests Intercept (Tumhare bot ka real logic)
+    // 📡 Network Requests Intercept
     page.on('request', (request) => {
         const url = request.url();
         if (url.includes('.m3u8')) {
@@ -94,9 +94,12 @@ async function recordStream(data, outputVid) {
     // Original headers bypass karne ke liye
     const headersCmd = `User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)\r\nReferer: ${data.referer}\r\nCookie: ${data.cookie}\r\n`;
     
+    // 👈 YEH WOH FIX HAI JO MISSING THA
+    const proxyUrl = `http://${PROXY_USER}:${PROXY_PASS}@${PROXY_IP}:${PROXY_PORT}`;
+
     let args = [
         "-y", 
-        "-http_proxy", proxyUrl,
+        "-http_proxy", proxyUrl,  // Proxy ab safely pass hogi aur 403 error nahi aayega
         "-headers", headersCmd, 
         "-i", data.url,
         "-c:v", "copy",   // Video stream ko directly copy karega (fastest)
